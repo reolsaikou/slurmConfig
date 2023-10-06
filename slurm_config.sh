@@ -108,6 +108,7 @@ sudo mkdir /var/log/slurm/
 cd ~/slurm-22.05.9/etc
 cp slurm*.service /etc/systemd/system
 cp ./slurm.conf /usr/local/etc/
+cp ./slurmdbd.conf /usr/local/etc/
 
 for i in ${cluster[@]}
 do
@@ -125,5 +126,16 @@ do
 remotessh
 done
 
+systemctl daemon-reload
+systemctl start slurmctld
+systemctl start slurmd
+systemctl start slurmdbd
 
-
+for i in ${cluster[@]}
+do
+    ssh root@${i} << remotessh
+    systemctl daemon-reload
+    systemctl start slurmd
+    exit
+remotessh
+done
