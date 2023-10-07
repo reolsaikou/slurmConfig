@@ -93,6 +93,9 @@ create database slurm_acct_db;
 create database slurm_jobcomp_db;
 EOF
 
+mysqlpath="/etc/mysql/mysql.conf.d/mysqld.cnf"
+sed -i -e 's/bind-address/# bind-address/g' ${mysqlpath}
+
 cd ./slurm-22.05.9
 ./configure
 make -j4
@@ -119,6 +122,7 @@ sudo mkdir /var/run/slurm/
 sudo chown -R slurm.slurm /var/run/slurm/
 sudo mkdir /var/log/slurm/
 cp ./slurm-22.05.9/etc/slurm*.service /etc/systemd/system
+sed -i -e "s/ExecStart=\/usr\/local\/sbin\/slurmd/ExecStart=\/usr\/local\/sbin\/slurmd --conf-server master:6817/g" /etc/systemd/system/slurmd.service
 cp ./slurm.conf /usr/local/etc/
 cp ./slurmdbd.conf /usr/local/etc/
 chmod 600 /usr/local/etc/slurmdbd.conf
@@ -135,6 +139,7 @@ do
     sudo chown -R slurm.slurm /var/run/slurm/
     sudo mkdir /var/log/slurm/
     cp ./slurm-22.05.9/etc/slurm*.service /etc/systemd/system
+    sed -i -e "s/ExecStart=\/usr\/local\/sbin\/slurmd/ExecStart=\/usr\/local\/sbin\/slurmd --conf-server master:6817/g" /etc/systemd/system/slurmd.service
     exit
 remotessh
 done
