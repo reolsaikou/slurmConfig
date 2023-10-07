@@ -40,7 +40,7 @@ do
 		then
             cluster["${cnt}"]="${arg}"
 			scp ./output.txt ${arg}:/root/
-			ssh root@node1${arg} "cat ./output.txt >> /etc/hosts"
+			ssh root@${arg} "cat ./output.txt >> /etc/hosts"
 		fi
 		let cnt++
 	fi
@@ -79,7 +79,20 @@ done
 
 curl -JLO https://download.schedmd.com/slurm/slurm-22.05.9.tar.bz2
 tar -jxvf slurm-22.05.9.tar.bz2
-sudo apt-get install make hwloc libhwloc-dev libmunge-dev libmunge2 munge  libmysqlclient-dev -y
+sudo apt-get install make hwloc libhwloc-dev libmunge-dev libmunge2 mysql-client-8.0 mysql-server-8.0 mysql-server mysql-client libmysqlclient-dev -y
+
+mysql
+mysql -u root << EOF
+ALTER user 'root'@'localhost' IDENTIFIED BY '123456';
+flush privileges;
+EOF
+mysql -u root -P 123456 << EOF
+CREATE USER 'root'@'%' IDENTIFIED BY '123456';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+create database slurm_acct_db;
+create database slurm_jobcomp_db;
+EOF
+
 cd ./slurm-22.05.9
 ./configure
 make -j4
@@ -90,7 +103,7 @@ do
     ssh root@${i} << remotessh
     curl -JLO https://download.schedmd.com/slurm/slurm-22.05.9.tar.bz2
     tar -jxvf slurm-22.05.9.tar.bz2
-    sudo apt-get install make hwloc libhwloc-dev libmunge-dev libmunge2 munge mariadb-server libmysqlclient-dev -y
+    sudo apt-get install make hwloc libhwloc-dev libmunge-dev libmunge2 mariadb-server mysql-client-8.0 mysql-server-8.0 mysql-server mysql-client libmysqlclient-dev -y
     cd ./slurm-22.05.9
     ./configure
     make -j4
@@ -105,10 +118,11 @@ sudo chown -R slurm.slurm /var/spool/slurm
 sudo mkdir /var/run/slurm/
 sudo chown -R slurm.slurm /var/run/slurm/
 sudo mkdir /var/log/slurm/
-cd ~/slurm-22.05.9/etc
-cp slurm*.service /etc/systemd/system
+cp ./slurm-22.05.9/etc/slurm*.service /etc/systemd/system
 cp ./slurm.conf /usr/local/etc/
 cp ./slurmdbd.conf /usr/local/etc/
+chmod 600 /usr/local/etc/slurmdbd.conf
+sudo chown -R slurm.slurm /usr/local/etc/slurmdbd.conf
 
 for i in ${cluster[@]}
 do
@@ -120,8 +134,7 @@ do
     sudo mkdir /var/run/slurm/
     sudo chown -R slurm.slurm /var/run/slurm/
     sudo mkdir /var/log/slurm/
-    cd ~/slurm-22.05.9/etc
-    cp slurm*.ervice /etc/systemd/system
+    cp ./slurm-22.05.9/etc/slurm*.service /etc/systemd/system
     exit
 remotessh
 done
