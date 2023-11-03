@@ -8,23 +8,23 @@ cnt=0
 configToNode=""
 while read line
 do
-	if [ "$jug" -eq 1 ] 
-	then
-		let cnt++
-		if [ "$line" == "###" ]
-		then
-			configToNode=$(printf "${configToNode}\n${line}")
-			break
-		fi
-		configToNode=$(printf "${configToNode}\n${line}")
-		echo -e "${configToNode}"
-	fi
-	if [ "$line" == "###" ] 
-	then
-		let jug=1
-		configToNode=$(printf "${configToNode}${line}\n")
-		echo -e "${configToNode}"
-	fi
+        if [ "$jug" -eq 1 ]
+        then
+                let cnt++
+                if [ "$line" == "###" ]
+                then
+                        configToNode=$(printf "${configToNode}\n${line}")
+                        break
+                fi
+                configToNode=$(printf "${configToNode}\n${line}")
+                echo -e "${configToNode}"
+        fi
+        if [ "$line" == "###" ]
+        then
+                let jug=1
+                configToNode=$(printf "${configToNode}${line}\n")
+                echo -e "${configToNode}"
+        fi
 done < $cluster_config
 echo " "
 echo -e "${configToNode}" > output.txt
@@ -33,20 +33,20 @@ cnt=0
 declare -A cluster
 while read line
 do
-	if [ "$line" != "###" ]
-	then
-		arg=$(echo $line | cut -d ' ' -f 2)
-		if [ "$cnt" -gt 0 ]
-		then
+        if [ "$line" != "###" ]
+        then
+                arg=$(echo $line | cut -d ' ' -f 2)
+                if [ "$cnt" -gt 0 ]
+                then
             cluster["${cnt}"]="${arg}"
-			scp ./output.txt ${arg}:/root/
-			ssh root@${arg} "cat ./output.txt >> /etc/hosts"
-		fi
-		let cnt++
-	fi
+                        # scp ./output.txt ${arg}:/root/
+                        # ssh root@${arg} "cat ./output.txt >> /etc/hosts"
+                fi
+                let cnt++
+        fi
 done < output.txt
 
-##
+#
 echo y | sudo apt-get install munge
 echo y | create-munge-key
 chmod 700 /etc/munge
@@ -58,7 +58,8 @@ systemctl restart munge.service
 
 for i in ${cluster[@]}
 do
-    ssh root@${i} << remotessh
+    echo ${i}
+    ssh root@${i} /bin/bash << remotessh
     echo y | sudo apt-get update
     echo y | sudo apt-get upgrade
     echo y | sudo apt-get install munge
@@ -69,7 +70,7 @@ do
     exit
 remotessh
     scp /etc/munge/munge.key root@${i}:/etc/munge/
-    ssh root@node1 << remotessh
+    ssh root@${i} /bin/bash << remotessh
     systemctl daemon-reload
     systemctl restart munge.service
     exit
@@ -77,11 +78,21 @@ remotessh
 done
 ##
 
+for i in ${cluster[@]}
+do
+{
+        echo -e "Start to Verify functionality of munge to ${i}\n"
+        munge -n -t 10 | ssh root@${i} unmunge
+}&
+done
+wait
+
+sleep 1s
+
 curl -JLO https://download.schedmd.com/slurm/slurm-22.05.9.tar.bz2
 tar -jxvf slurm-22.05.9.tar.bz2
 sudo apt-get install make hwloc libhwloc-dev libmunge-dev libmunge2 mysql-client-8.0 mysql-server-8.0 mysql-server mysql-client libmysqlclient-dev -y
 
-mysql
 mysql -u root << EOF
 ALTER user 'root'@'localhost' IDENTIFIED BY '123456';
 flush privileges;
@@ -103,7 +114,7 @@ make install
 
 for i in ${cluster[@]}
 do
-    ssh root@${i} << remotessh
+    ssh root@${i} /bin/bash << remotessh
     curl -JLO https://download.schedmd.com/slurm/slurm-22.05.9.tar.bz2
     tar -jxvf slurm-22.05.9.tar.bz2
     sudo apt-get install make hwloc libhwloc-dev libmunge-dev libmunge2 mariadb-server mysql-client-8.0 mysql-server-8.0 mysql-server mysql-client libmysqlclient-dev -y
@@ -130,8 +141,8 @@ sudo chown -R slurm.slurm /usr/local/etc/slurmdbd.conf
 
 for i in ${cluster[@]}
 do
-    scp ./slurm.conf root@${i}:/usr/local/etc/ 
-    ssh root@${i} << remotessh
+    scp ./slurm.conf root@${i}:/usr/local/etc/
+    ssh root@${i} /bin/bash << remotessh
     useradd slurm
     sudo mkdir /var/spool/slurm
     sudo chown -R slurm.slurm /var/spool/slurm
@@ -151,7 +162,7 @@ systemctl start slurmdbd
 
 for i in ${cluster[@]}
 do
-    ssh root@${i} << remotessh
+    ssh root@${i} /bin/bash << remotessh
     systemctl daemon-reload
     systemctl start slurmd
     exit
